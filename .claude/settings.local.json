@@ -8,7 +8,8 @@
       "Bash(pyenv versions:*)",
       "Bash(conda info:*)",
       "Bash(conda run:*)",
-      "Bash(conda install:*)"
+      "Bash(conda install:*)",
+      "Bash(python:*)"
     ]
   }
 }
