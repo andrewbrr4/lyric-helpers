@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(conda env:*)",
+      "Bash(conda deactivate:*)",
+      "Bash(conda remove:*)",
+      "Bash(conda create:*)",
+      "Bash(pyenv versions:*)",
+      "Bash(conda info:*)",
+      "Bash(conda run:*)",
+      "Bash(conda install:*)"
+    ]
+  }
+}
