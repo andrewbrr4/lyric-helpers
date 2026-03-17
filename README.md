@@ -1,3 +1,3 @@
 # lyric-helpers
 
-Code for NLP notebooks, functions and classes designed to serve as lyric-writing aids.
+A repo for various jupyter notebooks, functions and classes with the common theme of using NLP/AI technologies to assist with song lyric writing.
