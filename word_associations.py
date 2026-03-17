@@ -129,29 +129,3 @@ def associate(word: str, surprise: int = 5, top_k: int = 40) -> list[tuple[str, 
 
     deduped_words, deduped_sims = _dedup_by_stem(sorted_words, sorted_sims, word)
     return [(w, float(s)) for w, s in zip(deduped_words[:top_k], deduped_sims[:top_k])]
-
-
-def contrast(word: str, top_k: int = 40) -> list[tuple[str, float]]:
-    """
-    Find conceptual opposites of `word` -- the least similar words
-    in the vocabulary. Useful for lyrical contrast and tension.
-
-    Args:
-        word: the seed word
-        top_k: max number of results to return
-
-    Returns:
-        List of (word, similarity) sorted by ascending similarity.
-    """
-    target_vec = _embed(word)
-    target_lower = word.lower()
-
-    sims = VOCAB_EMBEDDINGS @ target_vec
-    mask = VOCAB_WORDS != target_lower
-
-    order = np.argsort(sims[mask])
-    sorted_words = VOCAB_WORDS[mask][order]
-    sorted_sims = sims[mask][order]
-
-    deduped_words, deduped_sims = _dedup_by_stem(sorted_words, sorted_sims, word)
-    return [(w, float(s)) for w, s in zip(deduped_words[:top_k], deduped_sims[:top_k])]

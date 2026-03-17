@@ -10,7 +10,7 @@ Uses the conda environment `lyrics-helpers`.
 
 Finds words that are semantically similar--but not *too* similar--to the target word. The purpose is not just to serve as a simple thesaurus for substituting specific words in a line (though that is a potential use case), but for more broad lyrical brainstorming and for building word-banks around a particular concept.
 
-Features a "surprise" dial: low surprise gives near-synonyms, high surprise gives unexpected but still connected associations--the sweet spot for creative writing. Also includes a contrast mode that surfaces conceptual opposites for lyrical tension.
+Features a "surprise" dial: low surprise gives near-synonyms, high surprise gives unexpected but still connected associations--the sweet spot for creative writing.
 
 #### Future ideas
 
