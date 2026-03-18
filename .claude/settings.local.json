@@ -1,16 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(conda env:*)",
-      "Bash(conda deactivate:*)",
-      "Bash(conda remove:*)",
-      "Bash(conda create:*)",
-      "Bash(pyenv versions:*)",
-      "Bash(conda info:*)",
-      "Bash(conda run:*)",
-      "Bash(conda install:*)",
-      "Bash(python:*)",
-      "Bash(/Users/andrewbarry/projects/lyric-helpers/eval_criteria.md:*)"
+      "Bash(*)"
     ]
   }
 }

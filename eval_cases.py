@@ -5,7 +5,7 @@ Usage: python eval_cases.py
 
 from word_associations import associate
 
-TEST_WORDS = ["heavy", "risky", "gentle", "fire", "lonely", "sharp"]
+TEST_WORDS = ["money", "risky", "gentle", "fire", "lonely", "sharp"]
 SURPRISE_LEVELS = [2, 5, 8]
 
 
