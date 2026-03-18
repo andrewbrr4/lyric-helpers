@@ -20,17 +20,20 @@ MAX_ZIPF = 6.5
 
 # Words that are measurement units, abbreviations, or have no evocative quality.
 BLOCKLIST = {
+    # Measurement units and abbreviations
     "lbs", "lb", "kg", "cm", "mm", "ft", "oz", "mg", "ml", "km", "mph", "hrs",
     "etc", "ie", "eg", "vs", "aka", "amt", "qty", "avg", "approx", "misc",
+    # Technical/bureaucratic jargon
     "documentation", "registry", "intervals", "config", "parameter", "parameters",
     "corresponding", "respective", "applicable", "furthermore", "therefore",
     "potentially", "appropriate", "recommended", "suitable",
-    "hereby", "thereof", "herein", "wherein", "thereof", "therein",
+    "hereby", "thereof", "herein", "wherein", "therein",
+    # Informal contractions
     "doin", "gonna", "gotta", "wanna", "aint",
     "could", "would", "should",
     # Generic/abstract words with no emotional or sensory quality
     "things", "thing", "actions", "action", "edited", "intended", "considering",
-    "corresponding", "respective", "furthermore", "regarding", "consisting",
+    "regarding", "consisting",
     "permitted", "prohibited", "specified", "indicated", "designated",
     "obtained", "required", "provided", "included", "involved",
     "based", "related", "associated", "referred", "considered",
@@ -51,7 +54,7 @@ BLOCKLIST = {
     # Filler/function words
     "fairly", "distinctly", "vary", "optional", "created", "use",
     "considerations", "product", "allows", "allowed",
-    "mmm", "hmm", "huh", "hon", "lol", "btw", "mid",
+    "mmm", "hmm", "huh", "lol", "btw", "mid",
     # Financial/technical jargon
     "holdings", "economists", "investor", "pricing", "fees",
     # Crude words that aren't evocative
@@ -269,10 +272,9 @@ def _dedup_by_stem(words, sims, target_word: str):
             continue
         if _is_morphological_variant(w, target_lower):
             continue
-        dedup_key = root
-        if dedup_key in seen_stems:
+        if root in seen_stems:
             continue
-        seen_stems.add(dedup_key)
+        seen_stems.add(root)
         out_words.append(w)
         out_sims.append(s)
     return out_words, out_sims
@@ -310,19 +312,16 @@ def associate(word: str, surprise: int = 5, top_k: int = 40) -> list[tuple[str, 
     # Filter antonyms using WordNet
     antonyms = _get_antonyms(word)
     if antonyms:
-        antonym_mask = np.zeros(len(VOCAB_WORDS), dtype=bool)
-        for i, w in enumerate(VOCAB_WORDS):
-            if not mask[i]:
-                continue
-            w_str = str(w)
+        candidate_indices = np.where(mask)[0]
+        for i in candidate_indices:
+            w_str = str(VOCAB_WORDS[i])
             if w_str in antonyms:
-                antonym_mask[i] = True
+                mask[i] = False
                 continue
             for ant in antonyms:
                 if _is_morphological_variant(w_str, ant):
-                    antonym_mask[i] = True
+                    mask[i] = False
                     break
-        mask = mask & ~antonym_mask
 
     # For surprise >= 4, exclude obvious synonyms (high similarity words)
     # to ensure results feel like genuine semantic jumps, not thesaurus entries.
