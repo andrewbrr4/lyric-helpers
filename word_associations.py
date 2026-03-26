@@ -282,7 +282,7 @@ def _dedup_by_stem(words, sims, target_word: str):
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def associate(word: str, surprise: int = 5, top_k: int = 40) -> list[tuple[str, float]]:
+def associate(word: str, surprise: int = 5, top_k: int = 20) -> list[tuple[str, float]]:
     """
     Find words associated with `word`.
 

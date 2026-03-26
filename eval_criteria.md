@@ -33,3 +33,6 @@ At this range, it is expected that there may be some nonsense, but there also mi
 - Words with no emotional or sensory quality (intervals, documentation, registry)
 - Near-duplicates in the same result set (thin/thinner, strong/stronger)
 - Opposites are discouraged for the time being--"happy" should ideally not return "sad"
+
+## Other requirements:
+- part of speech filter should accurately
