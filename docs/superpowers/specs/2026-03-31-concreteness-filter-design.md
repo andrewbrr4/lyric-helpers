@@ -54,3 +54,4 @@ The word-length penalty at surprise >= 7 (lines 332-338) is kept as-is. It's che
 3. Add `concreteness` kwarg to `associate()` with validation (clamp 1-10, None passthrough).
 4. Add mask step: if `concreteness` is not None, exclude words without a rating and words below the computed threshold.
 5. Update README future ideas to reflect this is implemented.
+6. Update `eval_cases.py` to test concreteness at different settings (e.g. `None`, `3`, `7`, `10`) across the existing test words, so results can be evaluated in future ralph loops.
