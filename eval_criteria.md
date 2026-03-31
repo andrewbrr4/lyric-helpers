@@ -36,3 +36,4 @@ At this range, it is expected that there may be some nonsense, but there also mi
 
 ## Other requirements:
 - part of speech filter should accurately
+- Different ranges of concreteness filters should behave as expected 

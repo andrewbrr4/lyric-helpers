@@ -1,3 +1,4 @@
+import csv
 import re
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from sentence_transformers import SentenceTransformer
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 CACHE_DIR = Path(__file__).parent / "cache"
 EMBEDDINGS_CACHE = CACHE_DIR / "vocab_embeddings.npz"
+CONCRETENESS_DATA = Path(__file__).parent / "data" / "concreteness_brysbaert.tsv"
 
 N_WORDS = 100_000
 MIN_ZIPF = 3.5
@@ -116,6 +118,17 @@ def _load_or_build_embeddings(
     return embeddings
 
 
+def _load_concreteness() -> dict[str, float]:
+    """Load Brysbaert et al. concreteness ratings from vendored TSV."""
+    ratings = {}
+    with open(CONCRETENESS_DATA, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            word = row["Word"].strip().lower()
+            ratings[word] = float(row["Conc.M"])
+    return ratings
+
+
 # ── Module-level init (runs once on import) ────────────────────────────────────
 
 _stemmer = SnowballStemmer("english")
@@ -125,6 +138,7 @@ _embeddings = _load_or_build_embeddings(_words_list, _model)
 
 VOCAB_WORDS = np.array(_words_list)
 VOCAB_EMBEDDINGS = _embeddings
+CONCRETENESS_RATINGS = _load_concreteness()
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
@@ -282,7 +296,7 @@ def _dedup_by_stem(words, sims, target_word: str):
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def associate(word: str, surprise: int = 5, top_k: int = 20) -> list[tuple[str, float]]:
+def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int | None = None) -> list[tuple[str, float]]:
     """
     Find words associated with `word`.
 
@@ -290,11 +304,20 @@ def associate(word: str, surprise: int = 5, top_k: int = 20) -> list[tuple[str, 
         word: the seed word
         surprise: 1-10 dial. 1 = near-synonyms, 10 = far-flung but still connected.
         top_k: max number of results to return
+        concreteness: 1-10 dial or None. When set, filters to words above a
+            minimum concreteness threshold (Brysbaert et al. ratings).
+            1 = barely filters, 10 = only very concrete/sensory words.
+            Words without a concreteness rating are excluded when set.
 
     Returns:
         List of (word, similarity) sorted by descending similarity.
     """
     surprise = max(1, min(10, surprise))
+
+    conc_threshold = None
+    if concreteness is not None:
+        concreteness = max(1, min(10, concreteness))
+        conc_threshold = 1.5 + (concreteness - 1) * (3.0 / 9)
 
     # Map surprise 1-10 to a similarity window with descending-similarity ranking.
     # Adaptive width: wider at low surprise (more synonyms available),
@@ -322,6 +345,15 @@ def associate(word: str, surprise: int = 5, top_k: int = 20) -> list[tuple[str, 
                 if _is_morphological_variant(w_str, ant):
                     mask[i] = False
                     break
+
+    # Filter by concreteness rating when requested
+    if concreteness is not None:
+        candidate_indices = np.where(mask)[0]
+        for i in candidate_indices:
+            w_str = str(VOCAB_WORDS[i])
+            rating = CONCRETENESS_RATINGS.get(w_str)
+            if rating is None or rating < conc_threshold:
+                mask[i] = False
 
     # For surprise >= 4, exclude obvious synonyms (high similarity words)
     # to ensure results feel like genuine semantic jumps, not thesaurus entries.
