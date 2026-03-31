@@ -314,6 +314,7 @@ def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int |
     """
     surprise = max(1, min(10, surprise))
 
+    conc_threshold = None
     if concreteness is not None:
         concreteness = max(1, min(10, concreteness))
         conc_threshold = 1.5 + (concreteness - 1) * (3.0 / 9)
