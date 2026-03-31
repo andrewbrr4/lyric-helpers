@@ -1,3 +1,4 @@
+import csv
 import re
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from sentence_transformers import SentenceTransformer
 MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 CACHE_DIR = Path(__file__).parent / "cache"
 EMBEDDINGS_CACHE = CACHE_DIR / "vocab_embeddings.npz"
+CONCRETENESS_DATA = Path(__file__).parent / "data" / "concreteness_brysbaert.tsv"
 
 N_WORDS = 100_000
 MIN_ZIPF = 3.5
@@ -116,6 +118,17 @@ def _load_or_build_embeddings(
     return embeddings
 
 
+def _load_concreteness() -> dict[str, float]:
+    """Load Brysbaert et al. concreteness ratings from vendored TSV."""
+    ratings = {}
+    with open(CONCRETENESS_DATA, newline="") as f:
+        reader = csv.DictReader(f, delimiter="\t")
+        for row in reader:
+            word = row["Word"].strip().lower()
+            ratings[word] = float(row["Conc.M"])
+    return ratings
+
+
 # ── Module-level init (runs once on import) ────────────────────────────────────
 
 _stemmer = SnowballStemmer("english")
@@ -125,6 +138,7 @@ _embeddings = _load_or_build_embeddings(_words_list, _model)
 
 VOCAB_WORDS = np.array(_words_list)
 VOCAB_EMBEDDINGS = _embeddings
+CONCRETENESS_RATINGS = _load_concreteness()
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
 
