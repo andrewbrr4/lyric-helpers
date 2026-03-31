@@ -14,7 +14,7 @@ Features a "surprise" dial: low surprise gives near-synonyms, high surprise give
 
 #### Future ideas
 
-- **Concrete/sensory word bias** -- Use concreteness ratings (e.g. Brysbaert et al.) to bias toward tangible, imagistic words over abstract ones
+- ~~**Concrete/sensory word bias**~~ -- Implemented: `concreteness` kwarg (1-10) filters by Brysbaert et al. concreteness ratings
 - **Metaphor generation via domain-shift filtering** -- Extend associations to surface metaphor candidates: find words with meaningful embedding similarity to the seed but from a different semantic domain (using WordNet lexnames). A metaphor is when the embedding says "related" but the domain says "completely different kind of thing" (e.g. "grief" → "tide")
 - **Shared-property bridging** -- Two-phase metaphor approach: (1) find adjectives near the seed word that describe its qualities (e.g. "consuming", "spreading", "heavy"), (2) find nouns/verbs from different domains that are also near those same adjectives. Surfaces unexpected cross-domain connections grounded in shared felt properties
 - **Syllable count filtering** -- Filter results by syllable count to fit a specific meter or melodic rhythm
