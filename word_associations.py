@@ -296,7 +296,15 @@ def _dedup_by_stem(words, sims, target_word: str):
 
 # ── Public API ─────────────────────────────────────────────────────────────────
 
-def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int | None = None) -> list[tuple[str, float]]:
+_POS_MAP = {
+    "noun": wordnet.NOUN,
+    "verb": wordnet.VERB,
+    "adjective": wordnet.ADJ,
+    "adverb": wordnet.ADV,
+}
+
+
+def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int | None = None, pos: str | None = None) -> list[tuple[str, float]]:
     """
     Find words associated with `word`.
 
@@ -308,11 +316,20 @@ def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int |
             minimum concreteness threshold (Brysbaert et al. ratings).
             1 = barely filters, 10 = only very concrete/sensory words.
             Words without a concreteness rating are excluded when set.
+        pos: part of speech to filter by, or None. One of "noun", "verb",
+            "adjective", "adverb". Words without a matching WordNet synset
+            are excluded when set.
 
     Returns:
         List of (word, similarity) sorted by descending similarity.
     """
     surprise = max(1, min(10, surprise))
+
+    if pos is not None:
+        pos = pos.lower()
+        if pos not in _POS_MAP:
+            raise ValueError(f"pos must be one of {list(_POS_MAP)}, got {pos!r}")
+        wn_pos = _POS_MAP[pos]
 
     conc_threshold = None
     if concreteness is not None:
@@ -353,6 +370,14 @@ def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int |
             w_str = str(VOCAB_WORDS[i])
             rating = CONCRETENESS_RATINGS.get(w_str)
             if rating is None or rating < conc_threshold:
+                mask[i] = False
+
+    # Filter by part of speech when requested
+    if pos is not None:
+        candidate_indices = np.where(mask)[0]
+        for i in candidate_indices:
+            w_str = str(VOCAB_WORDS[i])
+            if not wordnet.synsets(w_str, pos=wn_pos):
                 mask[i] = False
 
     # For surprise >= 4, exclude obvious synonyms (high similarity words)
