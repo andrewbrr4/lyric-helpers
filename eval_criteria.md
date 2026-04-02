@@ -35,5 +35,5 @@ At this range, it is expected that there may be some nonsense, but there also mi
 - Opposites are discouraged for the time being--"happy" should ideally not return "sad"
 
 ## Other requirements:
-- part of speech filter should accurately
+- Part of speech filter should accurately filter results
 - Different ranges of concreteness filters should behave as expected 

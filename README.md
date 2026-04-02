@@ -12,6 +12,32 @@ Finds words that are semantically similar--but not *too* similar--to the target 
 
 Features a "surprise" dial: low surprise gives near-synonyms, high surprise gives unexpected but still connected associations--the sweet spot for creative writing.
 
+#### Usage
+
+```python
+from word_associations import associate
+
+# Basic usage -- find associations for a word
+associate("flame")
+
+# Surprise dial: 1 = near-synonyms, 10 = far-flung connections
+associate("flame", surprise=3)   # torch, blaze, ember
+associate("flame", surprise=8)   # passion, wrath, crimson
+
+# Concreteness filter: 1 = barely filters, 10 = only concrete/sensory words
+associate("grief", concreteness=7)  # tears, ashes, wound
+
+# Part-of-speech filter: "noun", "verb", "adjective", or "adverb"
+associate("storm", pos="verb")       # rage, surge, howl
+associate("storm", pos="adjective")  # fierce, relentless, wild
+
+# Combine filters
+associate("silence", surprise=6, pos="noun", concreteness=5)
+
+# Control result count
+associate("moon", top_k=10)
+```
+
 #### Future ideas
 
 - **Metaphor generation via domain-shift filtering** -- Extend associations to surface metaphor candidates: find words with meaningful embedding similarity to the seed but from a different semantic domain (using WordNet lexnames). A metaphor is when the embedding says "related" but the domain says "completely different kind of thing" (e.g. "grief" → "tide")
