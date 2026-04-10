@@ -6,7 +6,7 @@ import numpy as np
 from wordfreq import top_n_list, zipf_frequency
 import nltk
 from nltk.corpus import stopwords, wordnet
-from nltk.stem import SnowballStemmer
+from nltk.stem import SnowballStemmer, WordNetLemmatizer
 from sentence_transformers import SentenceTransformer
 
 # ── Configuration ──────────────────────────────────────────────────────────────
@@ -71,6 +71,13 @@ BLOCKLIST = {
     "emotionally", "school", "television", "earned",
     "tolerate", "gay", "identify", "possibly", "finely",
     "economically", "consequently", "consequences",
+    "sexually", "physically", "mentally",
+    # Archaic, contextless, or random-register words
+    "thee", "thou", "thy", "thine", "ye", "hath", "doth",
+    "hon", "hairy",
+    # Generic indefinite pronouns with no evocative quality
+    "something", "anything", "nothing", "somebody", "nobody",
+    "anybody", "someone", "anyone", "everyone",
 }
 
 # ── Vocabulary ─────────────────────────────────────────────────────────────────
@@ -82,6 +89,7 @@ def _normalize(word: str) -> str:
 def _build_vocab() -> list[str]:
     nltk.download("stopwords", quiet=True)
     nltk.download("wordnet", quiet=True)
+    nltk.download("omw-1.4", quiet=True)
     stop = set(stopwords.words("english"))
 
     vocab = list(dict.fromkeys(
@@ -132,6 +140,7 @@ def _load_concreteness() -> dict[str, float]:
 # ── Module-level init (runs once on import) ────────────────────────────────────
 
 _stemmer = SnowballStemmer("english")
+_lemmatizer = WordNetLemmatizer()
 _words_list = _build_vocab()
 _model = SentenceTransformer(MODEL_NAME)
 _embeddings = _load_or_build_embeddings(_words_list, _model)
@@ -150,22 +159,20 @@ def _embed(word: str) -> np.ndarray:
     return _model.encode([word], convert_to_numpy=True, normalize_embeddings=True)[0]
 
 
-def _root_form(word: str) -> str:
-    """Aggressive normalization for dedup: strip suffixes then prefixes."""
-    # First try the stemmer
-    stem = _stemmer.stem(word)
-    # Also try suffix stripping for cases the stemmer misses
-    bases = _strip_suffixes(word)
-    # Use shortest base as the canonical form (most reduced)
-    candidates = {stem} | bases
-    root = min(candidates, key=len)
-    if len(root) < 3:
-        root = stem
-    # Strip common prefixes
-    for prefix in ("un", "re", "over", "under", "out"):
-        if root.startswith(prefix) and len(root) > len(prefix) + 2:
-            return root[len(prefix):]
-    return root
+def _canonical_key(word: str) -> str:
+    """Canonical dedup key: lemmatize across all POS, then stem.
+
+    This handles both inflection (knife/knives, worry/worried) via WordNet
+    and derivational variation (tempt/tempted) via the stemmer. Built atop
+    the lemmatizer rather than the prior aggressive suffix-stripping
+    `_root_form`, which over-stripped and produced different roots for
+    obvious variants like "worri" vs "worr".
+    """
+    lemma = min(
+        (_lemmatizer.lemmatize(word, pos=p) for p in ("v", "n", "a", "r")),
+        key=len,
+    )
+    return _stemmer.stem(lemma)
 
 
 _COMMON_SUFFIXES = (
@@ -232,9 +239,11 @@ _ANTONYM_PAIRS = {
     frozenset(p) for p in [
         ("safe", "risky"), ("safe", "dangerous"), ("safe", "unsafe"),
         ("gentle", "rough"), ("gentle", "harsh"), ("gentle", "fierce"), ("gentle", "violent"),
+        ("gentle", "severe"),
         ("sharp", "blunt"), ("sharp", "dull"), ("sharp", "smooth"),
         ("heavy", "light"), ("heavy", "lightweight"), ("heavy", "thin"), ("heavy", "weak"),
-        ("lonely", "social"), ("lonely", "popular"),
+        ("lonely", "social"), ("lonely", "popular"), ("lonely", "friend"),
+        ("lonely", "buddy"), ("lonely", "companion"),
         ("hot", "cold"), ("big", "small"), ("fast", "slow"),
         ("happy", "sad"), ("good", "bad"), ("strong", "weak"),
         ("hard", "soft"), ("dark", "bright"), ("loud", "quiet"),
@@ -273,22 +282,22 @@ def _get_antonyms(word: str) -> set[str]:
 
 
 def _dedup_by_stem(words, sims, target_word: str):
-    """Keep only the highest-similarity word per stem, excluding the target's variants."""
+    """Keep only the highest-similarity word per canonical form."""
+    target_key = _canonical_key(target_word)
     target_stem = _stemmer.stem(target_word)
-    target_root = _root_form(target_word)
     target_lower = target_word.lower()
-    seen_stems = set()
+    seen = set()
     out_words, out_sims = [], []
     for w, s in zip(words, sims):
-        stem = _stemmer.stem(w)
-        root = _root_form(w)
-        if stem == target_stem or root == target_root:
+        key = _canonical_key(w)
+        # Skip variants of the target word itself
+        if key == target_key or _stemmer.stem(w) == target_stem:
             continue
         if _is_morphological_variant(w, target_lower):
             continue
-        if root in seen_stems:
+        if key in seen:
             continue
-        seen_stems.add(root)
+        seen.add(key)
         out_words.append(w)
         out_sims.append(s)
     return out_words, out_sims
@@ -304,22 +313,70 @@ _POS_MAP = {
 }
 
 # Minimum share of WordNet synsets that must match the requested POS for a
-# word to count as that POS. WordNet has obscure nominal senses for many
-# adjectives/verbs (e.g. "digging" → "excavation"), so a presence-only check
-# is far too permissive.
-_POS_DOMINANCE_THRESHOLD = 0.25
+# word to count as that POS when no corpus frequency data is available.
+# Raised from 0.25 to 0.35 to reject denominal verbs (gas→"to gas"),
+# nouns-as-adjectives (rum→"a rum deal"), etc.
+_POS_DOMINANCE_THRESHOLD = 0.35
+
+# Minimum SemCor observations before trusting corpus frequency data.
+_MIN_SEMCOR_COUNT = 5
+
+# Minimum share of SemCor usage in target POS to accept the word.
+_SEMCOR_POS_THRESHOLD = 0.10
+
+
+def _norm_pos(p: str) -> str:
+    """Merge satellite adjectives with regular adjectives."""
+    return wordnet.ADJ if p == wordnet.ADJ_SAT else p
 
 
 def _is_dominant_pos(word: str, wn_pos: str) -> bool:
-    """True if `wn_pos` is at least _POS_DOMINANCE_THRESHOLD of the word's senses."""
+    """True if a human would immediately read `word` as `wn_pos`.
+
+    Uses three signals in order:
+    1. Gerund heuristic: -ing words that are really verb forms are rejected
+       as nouns (per eval criteria: "digging", "camping" ≠ nouns).
+    2. SemCor corpus frequency: when we have ≥5 tagged observations, use
+       actual usage ratios (much more reliable than synset counts).
+    3. Synset ratio fallback: fraction of WordNet senses in target POS.
+    """
     synsets = wordnet.synsets(word)
     if not synsets:
         return False
-    # Satellite adjectives ('s') are a subtype of adjective; merge them.
-    target = wordnet.ADJ if wn_pos == wordnet.ADJ_SAT else wn_pos
-    def _norm(p: str) -> str:
-        return wordnet.ADJ if p == wordnet.ADJ_SAT else p
-    matching = sum(1 for s in synsets if _norm(s.pos()) == target)
+
+    target = _norm_pos(wn_pos)
+
+    # ── Gerund-as-noun filter ─────────────────────────────────────────
+    # Words ending in "-ing" with a clear verb origin and ≤ 2 nominal
+    # senses are gerunds, not established nouns.  Catches "camping",
+    # "smoking", "digging", "striking" while keeping "building", "meeting".
+    if target == wordnet.NOUN and word.endswith("ing") and len(word) >= 5:
+        noun_n = sum(1 for s in synsets if _norm_pos(s.pos()) == wordnet.NOUN)
+        verb_n = sum(1 for s in synsets if _norm_pos(s.pos()) == wordnet.VERB)
+        if verb_n > 0 and noun_n <= 2:
+            return False
+
+    # ── SemCor corpus frequency ───────────────────────────────────────
+    pos_freq: dict[str, int] = {}
+    for syn in synsets:
+        p = _norm_pos(syn.pos())
+        for lemma in syn.lemmas():
+            if lemma.name().lower() == word.lower():
+                pos_freq[p] = pos_freq.get(p, 0) + lemma.count()
+
+    total_freq = sum(pos_freq.values())
+    if total_freq > 0:
+        target_freq = pos_freq.get(target, 0)
+        # Zero SemCor usage is a strong signal even with small samples:
+        # if the corpus NEVER saw this word used as the target POS, reject.
+        if target_freq == 0:
+            return False
+        # With enough observations, require meaningful representation.
+        if total_freq >= _MIN_SEMCOR_COUNT:
+            return target_freq / total_freq >= _SEMCOR_POS_THRESHOLD
+
+    # ── Synset ratio fallback ─────────────────────────────────────────
+    matching = sum(1 for s in synsets if _norm_pos(s.pos()) == target)
     return matching / len(synsets) >= _POS_DOMINANCE_THRESHOLD
 
 
