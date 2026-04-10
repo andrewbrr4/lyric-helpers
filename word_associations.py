@@ -303,6 +303,25 @@ _POS_MAP = {
     "adverb": wordnet.ADV,
 }
 
+# Minimum share of WordNet synsets that must match the requested POS for a
+# word to count as that POS. WordNet has obscure nominal senses for many
+# adjectives/verbs (e.g. "digging" → "excavation"), so a presence-only check
+# is far too permissive.
+_POS_DOMINANCE_THRESHOLD = 0.25
+
+
+def _is_dominant_pos(word: str, wn_pos: str) -> bool:
+    """True if `wn_pos` is at least _POS_DOMINANCE_THRESHOLD of the word's senses."""
+    synsets = wordnet.synsets(word)
+    if not synsets:
+        return False
+    # Satellite adjectives ('s') are a subtype of adjective; merge them.
+    target = wordnet.ADJ if wn_pos == wordnet.ADJ_SAT else wn_pos
+    def _norm(p: str) -> str:
+        return wordnet.ADJ if p == wordnet.ADJ_SAT else p
+    matching = sum(1 for s in synsets if _norm(s.pos()) == target)
+    return matching / len(synsets) >= _POS_DOMINANCE_THRESHOLD
+
 
 def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int | None = None, pos: str | None = None) -> list[tuple[str, float]]:
     """
@@ -377,7 +396,7 @@ def associate(word: str, surprise: int = 5, top_k: int = 20, concreteness: int |
         candidate_indices = np.where(mask)[0]
         for i in candidate_indices:
             w_str = str(VOCAB_WORDS[i])
-            if not wordnet.synsets(w_str, pos=wn_pos):
+            if not _is_dominant_pos(w_str, wn_pos):
                 mask[i] = False
 
     # For surprise >= 4, exclude obvious synonyms (high similarity words)

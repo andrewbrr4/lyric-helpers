@@ -35,5 +35,5 @@ At this range, it is expected that there may be some nonsense, but there also mi
 - Opposites are discouraged for the time being--"happy" should ideally not return "sad"
 
 ## Other requirements:
-- Part of speech filter should accurately filter results
-- Different ranges of concreteness filters should behave as expected 
+- Part of speech filter should accurately filter based on their *common usage* -- sure "-ing" words, i.e. gerunds are technically nouns, but that's not how a human user would expect the filter to behave (this is just an example, apply this principle to all parts of speech). Futhermore, part of speach filters should NOT degrade the perfomance of the surprise filter. If we end up with fewer, or even no results, that is preferable to bad results.
+- Different ranges of concreteness filters should behave as expected.
